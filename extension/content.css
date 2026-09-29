@@ -1,0 +1,18 @@
+.amr-toolbar { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin:0 0 18px; padding:14px 16px; background:#f4f7ff; border:1px solid #d4dff5; border-radius:10px; color:#233650; font:13px/1.5 system-ui,sans-serif; }
+.amr-toolbar strong { font-size:15px; }
+.amr-toolbar button,.amr-handle { border:1px solid #b8c9e3; border-radius:6px; background:white; color:#244876; padding:6px 10px; font:inherit; cursor:pointer; }
+.amr-toolbar button:hover,.amr-handle:hover { background:#e7efff; }
+.amr-toolbar button:focus-visible,.amr-handle:focus-visible { outline:3px solid #427de1; outline-offset:2px; }
+.amr-status { font-size:12px; }
+/* CSS ordering preserves React's node ownership and native event handlers. */
+.amr-table { display:block; min-width:960px; width:100%; }
+.amr-table thead { display:block; }
+.amr-table tbody { display:flex; flex-direction:column; }
+.amr-table tr { display:grid; grid-template-columns:minmax(250px,2.4fr) minmax(80px,.7fr) minmax(150px,1.3fr) minmax(155px,1.3fr) minmax(155px,1.3fr) minmax(80px,.6fr); }
+.amr-table th,.amr-table td { min-width:0; box-sizing:border-box; }
+.amr-table td:first-child { position:relative; padding-left:54px; }
+.amr-handle { position:absolute; left:10px; top:16px; padding:5px 8px; font-size:19px; line-height:1.3; cursor:grab; }
+.amr-handle:active { cursor:grabbing; }
+.amr-dragging { opacity:.45; }
+.amr-target { outline:2px solid #427de1; outline-offset:-2px; background:#edf3ff!important; }
+@media print { .amr-toolbar,.amr-handle { display:none!important; } }
