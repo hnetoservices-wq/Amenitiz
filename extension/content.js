@@ -45,8 +45,8 @@
     if (cancel) { order = previous; apply(); announce(words.cancel); }
   }
   // Inventory's custom dropdown wraps each option in its own React-owned div.
-  const rateSelector = '[class*="inventory-controls__rate-plan-selector___"]';
-  const optionSelector = '[data-testid="dropdown-item"][data-option]';
+  const rateSelector = '[class*="inventory-controls__rate-plan-selector___"], [data-testid="room-rate-selector"] [data-testid="rate-selector"]';
+  const optionSelector = '[data-testid="dropdown-item"][data-option], [data-testid="dropdown-checkbox-item"][data-option]';
   function dropdownEntries(selector) {
     return [...selector.querySelectorAll(optionSelector)].map(option => ({
       option, wrapper: option.parentElement, id: option.dataset.option
@@ -55,7 +55,7 @@
   function sortDropdowns() {
     const positions = new Map(order.map((value, index) => [value, index]));
     document.querySelectorAll(rateSelector).forEach(selector => {
-      const entries = dropdownEntries(selector);
+      const entries = dropdownEntries(selector).filter(entry => entry.id !== 'all');
       if (!entries.length) return;
       const list = entries[0].wrapper.parentElement;
       // Fail closed if Amenitiz changes the wrapper structure.
@@ -73,9 +73,9 @@
   document.addEventListener('keydown', event => {
     const option = event.target.closest?.(optionSelector);
     const selector = option?.closest(rateSelector);
-    if (!selector || !order.length || !option.closest('.amr-rate-options') ||
+    if (!selector || !order.length || !selector.querySelector('.amr-rate-options') ||
         event.altKey || event.ctrlKey || event.metaKey) return;
-    const entries = dropdownEntries(selector).sort((a, b) => Number(a.wrapper.style.order) - Number(b.wrapper.style.order));
+    const entries = dropdownEntries(selector).sort((a, b) => (a.id === 'all' ? -1 : Number(a.wrapper.style.order)) - (b.id === 'all' ? -1 : Number(b.wrapper.style.order)));
     const index = entries.findIndex(entry => entry.option === option);
     let next;
     if (event.key === 'ArrowDown') next = (index + 1) % entries.length;

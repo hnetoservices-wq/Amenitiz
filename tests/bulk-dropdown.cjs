@@ -1,0 +1,46 @@
+const {JSDOM}=require('jsdom');
+const fs=require('node:fs'),path=require('node:path'),assert=require('node:assert/strict');
+const fixture=new JSDOM(fs.readFileSync(process.argv[2],'utf8'));
+const html=fixture.window.document.querySelector('[data-testid="room-rate-selector"]').outerHTML;
+fixture.window.close();
+const wait=()=>new Promise(resolve=>setTimeout(resolve,60));
+(async()=>{
+  const dom=new JSDOM(html,{url:'https://test.amenitiz.io/pt/admin/inventory',runScripts:'outside-only',pretendToBeVisual:true});
+  const d=dom.window.document, key='rate-order:v1:test.amenitiz.io';
+  const saved=['143854','206455','206456','206457','206508','206509','147900'];
+  let changed;
+  dom.window.chrome={storage:{local:{get:async()=>({[key]:saved}),set:async()=>{}},onChanged:{addListener:fn=>changed=fn}}};
+  const root=d.querySelector('[data-testid="rate-selector"]');
+  const options=()=>[...root.querySelectorAll('[data-option]')];
+  const before=options(), original=before.map(el=>el.dataset.option);
+  const selected=before.find(el=>el.dataset.option==='206455');
+  selected.querySelector('input').checked=true;
+  selected.querySelector('[role="checkbox"]').setAttribute('aria-checked','true');
+  const visual=()=>options().filter(el=>el.dataset.option!=='all').sort((a,b)=>Number(a.parentElement.style.order)-Number(b.parentElement.style.order));
+  const other=d.querySelector('[data-testid="room-selector"]');
+  const otherHTML=other?.outerHTML;
+  let clicked;
+  before.forEach(el=>el.addEventListener('click',()=>clicked=el.dataset.option));
+  dom.window.eval(fs.readFileSync(path.join(__dirname,'../extension/content.js'),'utf8')); await wait();
+  assert.deepEqual(visual().map(el=>el.dataset.option),saved);
+  assert.deepEqual(options(),before);
+  assert.equal(selected.querySelector('input').checked,true);
+  assert.equal(selected.querySelector('[role="checkbox"]').getAttribute('aria-checked'),'true');
+  assert.equal(options()[0].dataset.option,'all');
+  assert.equal(options()[0].closest('.amr-rate-options'),null);
+  assert.equal(other?.outerHTML,otherHTML);
+  visual().at(-1).click();assert.equal(clicked,'147900');
+  options()[0].click();assert.equal(clicked,'all');
+  options()[0].focus();
+  function press(key){d.activeElement.dispatchEvent(new dom.window.KeyboardEvent('keydown',{key,bubbles:true,cancelable:true}));}
+  press('ArrowDown');assert.equal(d.activeElement.dataset.option,'143854');
+  press('ArrowUp');assert.equal(d.activeElement.dataset.option,'all');
+  press('End');assert.equal(d.activeElement.dataset.option,'147900');
+  // A filtered list follows the relative saved order.
+  root.querySelector('[data-option="206455"]').parentElement.remove();await wait();
+  assert.deepEqual(visual().map(el=>el.dataset.option),saved.filter(id=>id!=='206455'));
+  changed({[key]:{newValue:[]}},'local');
+  assert.equal(root.querySelector('.amr-rate-options'),null);
+  assert.deepEqual(options().map(el=>el.dataset.option),original.filter(id=>id!=='206455'));
+  dom.window.close();console.log('PASS: bulk dropdown order, select-all pinned, selections and click handlers preserved, keyboard, filtered results, reset, room selector unchanged.');
+})().catch(error=>{console.error(error);process.exit(1);});
