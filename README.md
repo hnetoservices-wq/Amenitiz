@@ -1,6 +1,6 @@
 # Amenitiz — Rate Organizer
 
-A small Manifest V3 extension for Chrome and Edge. Version 0.1.0 organizes the **rate plans page** (`/{locale}/admin/pricing_types`) on Amenitiz property subdomains.
+A small Manifest V3 extension for Chrome and Edge. Version 0.1.1 organizes the **rate plans page** (`/{locale}/admin/pricing_types`) on Amenitiz property subdomains.
 
 ## Install
 
@@ -14,10 +14,10 @@ Drag a **⋮⋮** handle onto another rate's upper or lower half to place it bef
 ## Scope and storage
 
 - This is a personal display preference, saved in extension local storage, separately for each property hostname. It persists across refreshes and browser restarts in the same browser profile.
-- It does not update Amenitiz's server-side order, rates, restrictions, booking engine, or connected OTAs. It does not yet reorder the inventory calendar or reservation rate selectors.
+- It does not update Amenitiz's server-side order, rates, restrictions, booking engine, or connected OTAs. The inventory rate dropdown follows the same saved order, including changes from another open tab. Reservation rate selectors are not yet supported.
 - New plans appear after saved plans until you reorder them. Original order follows the current order supplied by Amenitiz.
 - No login credentials, external service, API keys, analytics, or network requests are used by the extension. Only rate IDs and their order are saved. Uninstalling clears these preferences.
-- CSS changes visual order while leaving React-owned rows in their original DOM positions. Screen-reader reading order and native tab order remain Amenitiz's original order.
+- CSS changes visual order while leaving React-owned rows in their original DOM positions. Screen-reader reading order remains Amenitiz's original order. The inventory dropdown supports arrow keys, Home/End and Tab in the visual order.
 - Built against the supplied rate-plan HTML. Amenitiz markup changes may require selector updates. Live account testing is still required.
 
 ## Development

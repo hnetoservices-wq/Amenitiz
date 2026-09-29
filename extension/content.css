@@ -16,3 +16,7 @@
 .amr-dragging { opacity:.45; }
 .amr-target { outline:2px solid #427de1; outline-offset:-2px; background:#edf3ff!important; }
 @media print { .amr-toolbar,.amr-handle { display:none!important; } }
+
+/* Preserve native option nodes and their click handlers. */
+.amr-rate-options { display:flex!important; flex-direction:column!important; }
+.amr-rate-options > * { flex-shrink:0; }

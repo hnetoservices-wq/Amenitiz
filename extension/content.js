@@ -44,7 +44,63 @@
     document.querySelectorAll('.amr-dragging,.amr-target').forEach(el => el.classList.remove('amr-dragging', 'amr-target'));
     if (cancel) { order = previous; apply(); announce(words.cancel); }
   }
+  // Inventory's custom dropdown wraps each option in its own React-owned div.
+  const rateSelector = '[class*="inventory-controls__rate-plan-selector___"]';
+  const optionSelector = '[data-testid="dropdown-item"][data-option]';
+  function dropdownEntries(selector) {
+    return [...selector.querySelectorAll(optionSelector)].map(option => ({
+      option, wrapper: option.parentElement, id: option.dataset.option
+    }));
+  }
+  function sortDropdowns() {
+    const positions = new Map(order.map((value, index) => [value, index]));
+    document.querySelectorAll(rateSelector).forEach(selector => {
+      const entries = dropdownEntries(selector);
+      if (!entries.length) return;
+      const list = entries[0].wrapper.parentElement;
+      // Fail closed if Amenitiz changes the wrapper structure.
+      if (entries.some(entry => entry.wrapper.parentElement !== list) ||
+          list.children.length !== entries.length) return;
+      list.classList.toggle('amr-rate-options', order.length > 0);
+      entries.forEach((entry, index) => {
+        entry.wrapper.style.order = order.length
+          ? String(positions.has(entry.id) ? positions.get(entry.id) : order.length + index)
+          : '';
+      });
+    });
+  }
+  // Follow the visual order when navigating options with the keyboard.
+  document.addEventListener('keydown', event => {
+    const option = event.target.closest?.(optionSelector);
+    const selector = option?.closest(rateSelector);
+    if (!selector || !order.length || !option.closest('.amr-rate-options') ||
+        event.altKey || event.ctrlKey || event.metaKey) return;
+    const entries = dropdownEntries(selector).sort((a, b) => Number(a.wrapper.style.order) - Number(b.wrapper.style.order));
+    const index = entries.findIndex(entry => entry.option === option);
+    let next;
+    if (event.key === 'ArrowDown') next = (index + 1) % entries.length;
+    else if (event.key === 'ArrowUp') next = (index - 1 + entries.length) % entries.length;
+    else if (event.key === 'Home') next = 0;
+    else if (event.key === 'End') next = entries.length - 1;
+    else if (event.key === 'Tab') {
+      next = index + (event.shiftKey ? -1 : 1);
+      if (next < 0 || next >= entries.length) {
+        // Exit the menu rather than following the original DOM order back into it.
+        const focusables = [...document.querySelectorAll('a[href],button,input,select,textarea,[tabindex]')]
+          .filter(el => el.tabIndex >= 0 && !el.disabled && el.getClientRects().length);
+        const optionIndices = entries.map(entry => focusables.indexOf(entry.option)).filter(i => i >= 0);
+        if (!optionIndices.length) return;
+        const outside = focusables[event.shiftKey ? Math.min(...optionIndices) - 1 : Math.max(...optionIndices) + 1];
+        if (!outside) return;
+        event.preventDefault(); event.stopImmediatePropagation(); outside.focus(); return;
+      }
+    } else return;
+    event.preventDefault(); event.stopImmediatePropagation();
+    entries[next].option.focus();
+    entries[next].option.scrollIntoView?.({ block: 'nearest' });
+  }, true);
   function setup() {
+    sortDropdowns();
     const nextTable = document.querySelector('[data-testid="rate-plans-table"] table');
     if (!nextTable) {
       bar?.remove(); bar = null; table = null; rows = []; stopDrag(); return;
@@ -116,11 +172,17 @@
   chrome.storage.local.get(key).then(result => {
     order = Array.isArray(result[key]) ? [...new Set(result[key].filter(value => typeof value === 'string'))] : [];
   }).catch(() => {}).finally(() => {
+    chrome.storage.onChanged?.addListener((changes, area) => {
+      if (area !== 'local' || !Object.prototype.hasOwnProperty.call(changes, key)) return;
+      const value = changes[key].newValue;
+      order = Array.isArray(value) ? [...new Set(value.filter(item => typeof item === 'string'))] : [];
+      setup();
+    });
     setup();
     new MutationObserver(() => {
       if (scheduled) return;
       scheduled = true;
       requestAnimationFrame(() => { scheduled = false; setup(); });
-    }).observe(document.body, { childList: true, subtree: true });
+    }).observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ['data-option'] });
   });
 })();
