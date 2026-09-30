@@ -1,21 +1,13 @@
 {
   "manifest_version": 3,
   "name": "Amenitiz — Rate Organizer",
-  "version": "0.2.0",
-  "description": "Organize Amenitiz rate plans, improve inventory controls and add persistent interface themes.",
+  "version": "0.1.4",
+  "description": "Drag, sort and remember your rate-plan order separately for each Amenitiz property.",
   "permissions": ["storage"],
-  "content_scripts": [
-    {
-      "matches": ["https://*.amenitiz.io/*/admin/*"],
-      "js": ["themes.js"],
-      "css": ["themes.css"],
-      "run_at": "document_start"
-    },
-    {
-      "matches": ["https://*.amenitiz.io/*/admin/*"],
-      "js": ["content.js", "inventory.js"],
-      "css": ["content.css"],
-      "run_at": "document_idle"
-    }
-  ]
+  "content_scripts": [{
+    "matches": ["https://*.amenitiz.io/*/admin/*"],
+    "js": ["content.js", "inventory.js"],
+    "css": ["content.css"],
+    "run_at": "document_idle"
+  }]
 }
