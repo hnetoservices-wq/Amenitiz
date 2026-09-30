@@ -14,17 +14,97 @@
   let currentTheme = DEFAULT_THEME;
   let picker;
   let panel;
+  let paintQueued = false;
 
   function normalizeTheme(value) {
     return THEMES.some(theme => theme.id === value) ? value : DEFAULT_THEME;
+  }
+
+  function parseRgb(value) {
+    const match = value?.match(/^rgba?\((\d+),\s*(\d+),\s*(\d+)(?:,\s*([\d.]+))?\)$/i);
+    if (!match) return null;
+    return {
+      r: Number(match[1]),
+      g: Number(match[2]),
+      b: Number(match[3]),
+      a: match[4] == null ? 1 : Number(match[4])
+    };
+  }
+
+  function brightness(c) {
+    return (c.r * 299 + c.g * 587 + c.b * 114) / 1000;
+  }
+
+  function spread(c) {
+    return Math.max(c.r, c.g, c.b) - Math.min(c.r, c.g, c.b);
+  }
+
+  function isExtensionUi(el) {
+    return el.id === 'amx-theme-shell' || !!el.closest?.('#amx-theme-shell');
+  }
+
+  function classifyElement(el) {
+    if (!(el instanceof HTMLElement) || isExtensionUi(el)) return;
+
+    const style = getComputedStyle(el);
+    const bg = parseRgb(style.backgroundColor);
+    const fg = parseRgb(style.color);
+
+    // Neutral/light backgrounds are the main source of white islands in
+    // Amenitiz screens that use generated CSS class names.
+    if (bg && bg.a > 0.05 && brightness(bg) > 205 && spread(bg) < 42) {
+      el.dataset.amxPaintSurface = brightness(bg) > 242 ? '1' : '2';
+    } else {
+      delete el.dataset.amxPaintSurface;
+    }
+
+    // Recolour only neutral dark text. Saturated brand/status colours stay native.
+    if (fg && fg.a > 0.15 && brightness(fg) < 135 && spread(fg) < 58) {
+      el.dataset.amxPaintText = brightness(fg) < 75 ? 'strong' : 'soft';
+    } else {
+      delete el.dataset.amxPaintText;
+    }
+
+    // Neutral pale borders are common in inventory/calendar grids.
+    const border = parseRgb(style.borderTopColor);
+    if (border && border.a > 0.05 && brightness(border) > 155 && spread(border) < 45 && style.borderTopStyle !== 'none') {
+      el.dataset.amxPaintBorder = 'true';
+    } else {
+      delete el.dataset.amxPaintBorder;
+    }
+  }
+
+  function paintSubtree(start = document.body) {
+    if (currentTheme === DEFAULT_THEME || !start) return;
+    classifyElement(start);
+    start.querySelectorAll?.('*').forEach(classifyElement);
+  }
+
+  function clearPaint() {
+    document.querySelectorAll('[data-amx-paint-surface],[data-amx-paint-text],[data-amx-paint-border]').forEach(el => {
+      delete el.dataset.amxPaintSurface;
+      delete el.dataset.amxPaintText;
+      delete el.dataset.amxPaintBorder;
+    });
+  }
+
+  function schedulePaint(start = document.body) {
+    if (currentTheme === DEFAULT_THEME || paintQueued) return;
+    paintQueued = true;
+    requestAnimationFrame(() => {
+      paintQueued = false;
+      paintSubtree(start?.isConnected ? start : document.body);
+    });
   }
 
   function applyTheme(theme) {
     currentTheme = normalizeTheme(theme);
     if (currentTheme === DEFAULT_THEME) {
       root.removeAttribute('data-amx-theme');
+      clearPaint();
     } else {
       root.setAttribute('data-amx-theme', currentTheme);
+      schedulePaint();
     }
 
     if (picker) {
@@ -61,9 +141,7 @@
     const opening = panel.hidden;
     panel.hidden = !opening;
     picker.setAttribute('aria-expanded', String(opening));
-    if (opening) {
-      panel.querySelector('[data-active="true"]')?.focus();
-    }
+    if (opening) panel.querySelector('[data-active="true"]')?.focus();
   }
 
   function createPicker() {
@@ -114,6 +192,13 @@
     shell.append(panel, picker);
     document.body.appendChild(shell);
     applyTheme(currentTheme);
+
+    new MutationObserver(mutations => {
+      if (currentTheme === DEFAULT_THEME) return;
+      const added = mutations.flatMap(mutation => [...mutation.addedNodes])
+        .find(node => node instanceof HTMLElement && !isExtensionUi(node));
+      schedulePaint(added || document.body);
+    }).observe(document.body, { childList: true, subtree: true });
   }
 
   document.addEventListener('click', event => {
