@@ -1,6 +1,7 @@
 (() => {
   'use strict';
   const initialized = new WeakSet();
+  const attempts = new WeakMap();
   const roomSelector = '[data-testid="inventory-room-calendar"]';
   const row = (grid, testId) => [...grid.children].find(el => el.dataset.testid === testId);
   const stayIds = ['min-max-stay-row', 'min-stay-row', 'max-stay-row'];
@@ -23,13 +24,23 @@
       });
       if (initialized.has(heading)) return;
       const header = heading.querySelector('[data-testid="expandable-header"] [data-testid="header"]');
-      const detail = row(grid, 'min-stay-row');
-      // Hidden/lazy rooms are handled once laid out; never toggle an already expanded section.
-      if (!header || !room.getClientRects().length) return;
-      const expanded = detail && detail.getBoundingClientRect().height > 0 &&
-        getComputedStyle(detail).display !== 'none' && getComputedStyle(detail).visibility !== 'hidden';
-      initialized.add(heading);
-      if (!expanded) header.click();
+      const icon = heading.querySelector('[data-testid="expand-icon"]');
+      // Use Amenitiz's actual open-state markers, not row geometry: collapsed
+      // detail rows remain mounted and may still have a measurable height.
+      const expanded = [...heading.classList].some(value => value.includes('__row--open___')) ||
+        !!icon?.querySelector('[title="arrows/chevron-up"]');
+      if (expanded) { initialized.add(heading); return; }
+      if (!header || !icon || !room.getClientRects().length) return;
+      const attempt = attempts.get(heading) || { count: 0, pending: false };
+      if (attempt.pending || attempt.count >= 4) return;
+      attempt.count += 1; attempt.pending = true; attempts.set(heading, attempt);
+      // Clicking the icon also reaches any handlers on its ancestors.
+      icon.click();
+      setTimeout(() => {
+        attempt.pending = false;
+        if (heading.isConnected) schedule();
+      }, 250);
+
     });
   }
   let pending = false;

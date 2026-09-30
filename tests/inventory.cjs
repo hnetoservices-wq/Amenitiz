@@ -15,8 +15,11 @@ const wait=()=>new Promise(resolve=>setTimeout(resolve,70));
     room.getClientRects=()=>[{}];
     const heading=room.querySelector('[data-testid="min-max-stay-row"]');
     const detail=room.querySelector('[data-testid="min-stay-row"]');
-    detail.getBoundingClientRect=()=>({height:expanded?40:0});
-    heading.querySelector('[data-testid="header"]').addEventListener('click',()=>{expanded=!expanded;clicks.set(room,(clicks.get(room)||0)+1);const marker=d.createElement('i');heading.append(marker);marker.remove();});
+    // Both states have nonzero height: regression for the old geometry check.
+    detail.getBoundingClientRect=()=>({height:40});
+    const reflect=()=>{heading.classList.toggle('styles-module__row--open___J18ee',expanded);heading.querySelector('[data-testid="expand-icon"] [title]').title=expanded?'arrows/chevron-up':'arrows/chevron-down';};
+    reflect();
+    heading.querySelector('[data-testid="header"]').addEventListener('click',()=>{expanded=!expanded;reflect();clicks.set(room,(clicks.get(room)||0)+1);const marker=d.createElement('i');heading.append(marker);marker.remove();});
   }
   rooms.forEach((room,index)=>wire(room,index===1));
   dom.window.eval(fs.readFileSync(path.join(__dirname,'../extension/inventory.js'),'utf8'));await wait();await wait();

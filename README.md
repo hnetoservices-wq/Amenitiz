@@ -1,6 +1,6 @@
 # Amenitiz — Rate Organizer
 
-A small Manifest V3 extension for Chrome and Edge. Version 0.1.3 organizes the **rate plans page** (`/{locale}/admin/pricing_types`) on Amenitiz property subdomains.
+A small Manifest V3 extension for Chrome and Edge. Version 0.1.4 organizes the **rate plans page** (`/{locale}/admin/pricing_types`) on Amenitiz property subdomains.
 
 ## Install
 
@@ -29,3 +29,5 @@ There are no build dependencies. Reload the unpacked extension and refresh Ameni
 ## Inventory layout
 
 PriceAdvisor recommendation rows are hidden. Minimum/maximum stay (including its detail rows) appears before rate restrictions for every room. The extension opens minimum/maximum stay once when each room calendar mounts; you can collapse it again during that visit. Already expanded sections are left open. Native price and restriction values are unchanged.
+
+Expansion uses Amenitiz’s open-state class and arrow direction, with up to four attempts while the page initializes. It only marks a section initialized after observing that it is open.
