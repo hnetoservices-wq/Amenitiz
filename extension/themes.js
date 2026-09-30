@@ -14,7 +14,9 @@
   let currentTheme = DEFAULT_THEME;
   let picker;
   let panel;
-  let paintQueued = false;
+  let paintFrame = 0;
+  let fullPaintRequested = false;
+  const pendingPaintRoots = new Set();
 
   function normalizeTheme(value) {
     return THEMES.some(theme => theme.id === value) ? value : DEFAULT_THEME;
@@ -74,10 +76,10 @@
     }
   }
 
-  function paintSubtree(start = document.body) {
-    if (currentTheme === DEFAULT_THEME || !start) return;
+  function classifySubtree(start) {
+    if (!start || !(start instanceof HTMLElement)) return;
     classifyElement(start);
-    start.querySelectorAll?.('*').forEach(classifyElement);
+    start.querySelectorAll('*').forEach(classifyElement);
   }
 
   function clearPaint() {
@@ -88,25 +90,59 @@
     });
   }
 
-  function schedulePaint(start = document.body) {
-    if (currentTheme === DEFAULT_THEME || paintQueued) return;
-    paintQueued = true;
-    requestAnimationFrame(() => {
-      paintQueued = false;
-      paintSubtree(start?.isConnected ? start : document.body);
-    });
+  // Classification must always read Amenitiz's native colours, not colours already
+  // changed by one of our themes. Temporarily removing the theme attribute lets
+  // getComputedStyle() see the original page without producing a visible frame.
+  function classifyNative(roots) {
+    if (currentTheme === DEFAULT_THEME || !document.body) return;
+    const activeTheme = root.getAttribute('data-amx-theme');
+    root.removeAttribute('data-amx-theme');
+    try {
+      roots.forEach(classifySubtree);
+    } finally {
+      if (activeTheme) root.setAttribute('data-amx-theme', activeTheme);
+    }
   }
 
-  function applyTheme(theme) {
-    currentTheme = normalizeTheme(theme);
-    if (currentTheme === DEFAULT_THEME) {
-      root.removeAttribute('data-amx-theme');
-      clearPaint();
-    } else {
-      root.setAttribute('data-amx-theme', currentTheme);
-      schedulePaint();
+  function cancelPaintQueue() {
+    if (paintFrame) cancelAnimationFrame(paintFrame);
+    paintFrame = 0;
+    fullPaintRequested = false;
+    pendingPaintRoots.clear();
+  }
+
+  function flushPaintQueue() {
+    paintFrame = 0;
+    if (currentTheme === DEFAULT_THEME || !document.body) {
+      fullPaintRequested = false;
+      pendingPaintRoots.clear();
+      return;
     }
 
+    const roots = fullPaintRequested
+      ? [document.body]
+      : [...pendingPaintRoots].filter(node => node?.isConnected && node instanceof HTMLElement);
+
+    fullPaintRequested = false;
+    pendingPaintRoots.clear();
+    if (roots.length) classifyNative(roots);
+  }
+
+  function schedulePaint(start = document.body, full = false) {
+    if (currentTheme === DEFAULT_THEME || !document.body) return;
+
+    if (full) {
+      // A full-page request always wins over any smaller pending React mutation.
+      fullPaintRequested = true;
+      pendingPaintRoots.clear();
+    } else if (!fullPaintRequested && start instanceof HTMLElement && !isExtensionUi(start)) {
+      pendingPaintRoots.add(start);
+    }
+
+    if (!paintFrame) paintFrame = requestAnimationFrame(flushPaintQueue);
+  }
+
+  function updatePickerState() {
     if (picker) {
       picker.dataset.theme = currentTheme;
       picker.setAttribute('aria-label', `Theme: ${THEMES.find(item => item.id === currentTheme)?.label || 'Amenitiz'}`);
@@ -120,6 +156,37 @@
         button.dataset.active = String(active);
       });
     }
+  }
+
+  function applyTheme(theme) {
+    const nextTheme = normalizeTheme(theme);
+    const previousTheme = currentTheme;
+
+    if (nextTheme === DEFAULT_THEME) {
+      currentTheme = DEFAULT_THEME;
+      cancelPaintQueue();
+      root.removeAttribute('data-amx-theme');
+      clearPaint();
+      updatePickerState();
+      return;
+    }
+
+    // Entering a custom theme: classify the entire page while it is still native.
+    // This prevents the first pending React mutation from stealing the full scan.
+    if (previousTheme === DEFAULT_THEME) {
+      currentTheme = nextTheme;
+      root.removeAttribute('data-amx-theme');
+      if (document.body) classifySubtree(document.body);
+      root.setAttribute('data-amx-theme', nextTheme);
+      cancelPaintQueue();
+    } else {
+      // Custom -> custom only changes palette variables. Reclassification here would
+      // inspect colours produced by the previous theme and cause white islands.
+      currentTheme = nextTheme;
+      root.setAttribute('data-amx-theme', nextTheme);
+    }
+
+    updatePickerState();
   }
 
   async function saveTheme(theme) {
@@ -191,13 +258,15 @@
     shell.className = 'amx-theme-shell';
     shell.append(panel, picker);
     document.body.appendChild(shell);
-    applyTheme(currentTheme);
+    updatePickerState();
 
     new MutationObserver(mutations => {
       if (currentTheme === DEFAULT_THEME) return;
-      const added = mutations.flatMap(mutation => [...mutation.addedNodes])
-        .find(node => node instanceof HTMLElement && !isExtensionUi(node));
-      schedulePaint(added || document.body);
+      for (const mutation of mutations) {
+        for (const node of mutation.addedNodes) {
+          if (node instanceof HTMLElement && !isExtensionUi(node)) schedulePaint(node);
+        }
+      }
     }).observe(document.body, { childList: true, subtree: true });
   }
 
