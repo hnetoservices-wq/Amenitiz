@@ -1,12 +1,12 @@
 {
   "manifest_version": 3,
   "name": "Amenitiz — Rate Organizer",
-  "version": "0.1.2",
+  "version": "0.1.3",
   "description": "Drag, sort and remember your rate-plan order separately for each Amenitiz property.",
   "permissions": ["storage"],
   "content_scripts": [{
     "matches": ["https://*.amenitiz.io/*/admin/*"],
-    "js": ["content.js"],
+    "js": ["content.js", "inventory.js"],
     "css": ["content.css"],
     "run_at": "document_idle"
   }]

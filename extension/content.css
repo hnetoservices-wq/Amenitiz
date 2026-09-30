@@ -20,3 +20,8 @@
 /* Preserve native option nodes and their click handlers. */
 .amr-rate-options { display:flex!important; flex-direction:column!important; }
 .amr-rate-options > * { flex-shrink:0; }
+
+/* Inventory calendar: preserve the existing horizontal scroll and native row controls. */
+[data-testid="inventory-room-calendar"] .amr-inventory-grid { display:flex!important; flex-direction:column!important; }
+[data-testid="inventory-room-calendar"] .amr-inventory-grid > * { flex-shrink:0; }
+[data-testid="inventory-room-calendar"] [data-testid="smart-pricing-row"] { display:none!important; }
